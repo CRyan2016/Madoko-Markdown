@@ -1,0 +1,76 @@
+Title         : Spring概述
+Author        : Cryan
+Logo          : True
+
+[TITLE]
+
+# Spring模块 
+&emsp;Spring framework core support for dependency injection, transaction management, web applications,
+data access, messaging, testing and more.
+
+&emsp;Spring由下列模块组成
+
+![springModule]
+
+# Spring核心
+* 依赖注入(Dependency Injection)
+* 应用切面编程(Aspect-Oriented Programming including Spring's declarative transaction management)
+* MVC框架(Spring MVC web application and RESTful web service framework)
+* 灵活的数据支持(Foundational support for JDBC, JPA, JMS)
+
+# Spring下的Bean
+<h6>传统意义上的Java Bean满足以下条件:</h6>
+
+* must implement either Serializable or Externalizable
+* must have a no-arg constructor
+* properties must have public setter and getter methods (as appropriate)
+* instance variables should be private
+
+<h6>POJO的定义满足:</h6>
+
+* All properties must public setter and getter methods
+* All instance variables should be private
+* Should not extend prespecified classes, not implement prespecified interfaces and not contain prespecified annotations
+* It may not have no argument constructor
+
+Spring下的Bean可以理解为增强版的POJO.
+
+<h6>Spring下配置Bean途径:</h6>
+
+* XML中进行显式配置
+* Java代码中显式配置
+* 隐式的bean自动扫描和装配
+
+<h6>自动扫描和装配bean</h6>
+
+Spring从两个角度来实现自动化装配:
+
+* 组件扫描(component scaning): Spring自动发现应用上下文中所创建的bean
+* 自动装配(autowiring): Spring自动满足bean之间的依赖
+
+组件声明---使用@Component注解声明Spring组件
+
+```java
+// 组件类声明,并告诉Spring要为这个类创建bean
+@Component
+public class SgtPeppers implements CompactDisc {
+    public void play() {
+    }
+}
+```
+@Component("自定义bean ID"),默认是类名首字母小写后的名称
+
+组件扫描---使用@ComponentScan注解
+```java
+@Configuration
+@ComponentScan
+public class CDPlayerConfig {
+}
+```
+@Configuration为Spring Java配置文件的注解，@ComponentScan默认扫描配置文件所在包，
+可以使用@ComponentScan(basePackages="包名")或者@ComponentScan(basePackages={"包名1"，"包名2"})
+
+
+
+[springModule]: images/springModule.png "springModule" { width:auto; max-width:90%}
+
