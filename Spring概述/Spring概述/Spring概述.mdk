@@ -1,0 +1,325 @@
+Title         : Spring概述
+Author        : Cryan
+Logo          : True
+
+[TITLE]
+
+# Spring模块 
+&emsp;Spring framework core support for dependency injection, transaction management, web applications,
+data access, messaging, testing and more.
+
+&emsp;Spring由下列模块组成
+
+![springModule]
+
+# Spring核心
+* 依赖注入(Dependency Injection)
+* 应用切面编程(Aspect-Oriented Programming including Spring's declarative transaction management)
+* MVC框架(Spring MVC web application and RESTful web service framework)
+* 灵活的数据支持(Foundational support for JDBC, JPA, JMS)
+
+# Spring Bean基本用法
+<h6>传统意义上的Java Bean满足以下条件:</h6>
+
+* must implement either Serializable or Externalizable
+* must have a no-arg constructor
+* properties must have public setter and getter methods (as appropriate)
+* instance variables should be private
+
+<h6>POJO的定义满足:</h6>
+
+* All properties must public setter and getter methods
+* All instance variables should be private
+* Should not extend prespecified classes, not implement prespecified interfaces and not contain prespecified annotations
+* It may not have no argument constructor
+
+Spring下的Bean可以理解为增强版的POJO.
+
+<h6>Spring下配置Bean途径:</h6>
+
+* XML中进行显式配置
+* Java代码中显式配置
+* 隐式的bean自动扫描和装配
+
+<h6>1. 自动扫描和装配bean</h6>
+
+Spring从两个角度来实现自动化装配:
+
+* 组件声明: 声明Spring组件，即要创建的bean
+* 组件扫描(component scaning): Spring自动发现应用上下文中所创建的bean
+* 自动装配(autowiring): Spring自动满足bean之间的依赖
+
+组件声明---使用@Component注解声明Spring组件
+
+```java
+// 组件类声明,并告诉Spring要为这个类创建bean
+@Component
+public class SgtPeppers implements CompactDisc {
+    public void play() {
+    }
+}
+```
+@Component("自定义bean ID"),默认是类名首字母小写后的名称
+
+组件扫描---使用@ComponentScan注解
+```java
+@Configuration
+@ComponentScan
+public class CDPlayerConfig {
+}
+```
+@Configuration为Spring Java配置文件的注解，@ComponentScan默认扫描配置文件所在包，
+可以使用@ComponentScan(basePackages="包名")或者@ComponentScan(basePackages={"包名1"，"包名2"})
+@ComponentScan可以指定扫描类@ComponentScan(basePackageClasses={类名.class，类名.class})
+
+组件扫描---使用xml配置
+```
+xmlns:context="http://www.springframework.org/schema/context"
+<context:component-scan base-package="包名" />
+```
+组件自动装配---使用@Autowired注解
+```java
+@Component
+public class CDPlayer implements MediaPlayer{
+    private CompactDisc cd;
+    
+    @Autowired
+    public CDPlayer(CompactDisc cd){
+        this.cd = cd;
+    }
+
+    public void play() { }
+}
+```
+* @Autowired注解是Spring中特有的，可以使用@Inject(来源于java依赖注入规范)代替
+* @Autowired不仅可以在构造器上使用，还可以在set方法上使用，更一般可以在任意方法中使用
+* @Autowired在无法找到满足依赖注入的bean时，将抛出异常。@Autowired(required=false)表明禁止
+异常抛出，谨慎使用
+
+自动扫描和装配缺点:
+
+* 装配时满足注入依赖的类对象可能有多个
+* 不能为第三方库添加@Component和@Autowired注释
+
+<h6>2. Java代码装配Bean</h6>
+&emsp;在进行显式配置时,JavaConfig是更好的方案,因为它更为强大、类型安全并且对重构友好。因为它就是Java代码,
+就像应用程序中的其他Java代码一样。
+
+创建配置类---JavaConfig
+```java
+@Configuration
+public class CDPlayerConfig {
+
+}
+```
+@Configuration注解表明这个类是一个配置类,该类应该包含在Spring应用上下文中如何创建bean的细节。
+
+声明Bean---在JavaConfig中
+```java
+@Bean
+public CompactDisc sgtPeppers(){
+    return new SgtPeppers();
+}
+// 使用构造器实现依赖注入，生成bean
+@Bean
+public CDPlayer cdPlayer(CompactDisc compactDisc){
+    return new CDPlayer(compactDisc);
+}
+```
+* @Bean注解会告诉Spring这个方法将会返回一个对象,该对象要注册为Spring应用上下文中的bean。方法体中包含了最终产生bean实例的
+逻辑
+* @Bean声明使用方法名作为默认bean的ID,上例ID为sgtPeppers,使用@Bean(name="ID名")更改
+
+<h6>3. XML装配Bean</h6>
+&emsp;在xml中，beans为根元素，以此创建bean
+```
+<bean id="ID名" class="类名">
+    <constructor-arg value/ref="字面量值/引用bean ID"></constructor-arg>
+    <property name="变量名" value/ref="字面量值/引用bean ID"></property>
+</bean>
+```
+* 构造器参数可以使用c命名空间
+* 类的变量可以使用p命名空间
+
+<h6>4. 混合装配</h6>
+Java代码混合装配
+
+* JavaConfig中使用@ComponentScan实现组件自动扫描
+* JavaConfig中使用@Import导入Java配置代码.@Import(类名.class)或@Import({类名.class,类名.class})
+* JavaConfig中使用@ImportResource导入xml.@ImportResource("xml路径")
+
+xml混合装配
+
+* xml配置自动扫描
+* xml使用`<bean class="JavaConfig类">`来导入Java代码配置
+* xml使用`<import resource="xml路径">`来导入xml配置
+
+# Spring Bean高阶用法
+<h6>1. profile使用</h6>
+* 配置profile bean
+* 激活profile
+
+<h6>2. 条件化生成bean</h6>
+Spring 4 引入了一个新的@Conditional注解,它可以用到带有@Bean注解的方法上。如果给定的条件计算结果为true,
+就会创建这个bean,否则的话,这个bean会被忽略。
+```java
+// 条件化bean
+@Configuration
+public class MagicConfig {
+    @Bean
+    @Conditional(MagicExistsCondition.class)
+    public MagicBean magicBean(){
+        return new MagicBean();
+    }
+}
+// MagicExistsCondition.class定义
+public class MagicExistsCondition implements Condition {
+    public boolean matches(ConditionContext conditionContext,
+                           AnnotatedTypeMetadata annotatedTypeMetadata) {
+        Environment env = conditionContext.getEnvironment();
+        return env.containsProperty("magic");
+    }
+}
+```
+MagicExistsCondition实现类Condition接口
+```java
+public interface Condition {
+    boolean matches(ConditionContext var1, AnnotatedTypeMetadata var2);
+}
+```
+Condition接口中的参数
+
+* ConditionContext定义
+```java
+public interface ConditionContext {
+    // 检查bean定义
+    BeanDefinitionRegistry getRegistry();
+    // 检查bean是否存在,甚至探查bean的属性
+    ConfigurableListableBeanFactory getBeanFactory();
+    // 检查环境变量是否存在以及它的值是什么
+    Environment getEnvironment();
+    // 读取并探查资源文件
+    ResourceLoader getResourceLoader();
+    // 加载并检查类是否存在
+    ClassLoader getClassLoader();
+}
+```
+* AnnotatedTypeMetadata定义
+```java
+public interface AnnotatedTypeMetadata {
+    // 判断带有@Bean注解的方法是不是还有其他特定的注解
+    boolean isAnnotated(String var1);
+    Map<String, Object> getAnnotationAttributes(String var1);
+    Map<String, Object> getAnnotationAttributes(String var1, boolean var2);
+    MultiValueMap<String, Object> getAllAnnotationAttributes(String var1);
+    MultiValueMap<String, Object> getAllAnnotationAttributes(String var1, boolean var2);
+}
+```
+
+<h6>3. 自动装配Bean歧义处理</h6>
+出现歧义的原因:自动装配的方法的DI(依赖注入)存在多个实现类
+
+解决方法
+
+* 标示首选(primary) bean
+```java
+// JavaConfig中
+@Bean
+@Primary
+public Example example(){
+      new Example();
+}
+// xml文件中
+<bean id="" class="" primary=true />
+```
+* 使用限定符(qualifier): 
+  * 使用\@Qualifier("bean的ID")来装配歧义Bean
+  ```java
+  @Autowired
+  @Qualifier('bean ID')
+  public void setterDI(DI di){}
+  ```
+  * 使用\@Qualifier("bean 的ID")创建新的Bean ID(默认情况下Bean ID在类重构后改变，为其命名可以减少藕合)
+  ```java
+  @Component
+  @Qualifier('自定义ID')
+  public class Example{}
+  ```
+* 自定义限定符注解: 通过\@Qualifier实现新的限定符
+```java
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+@Qualifier
+public @interface 自定义注解名 {}
+```
+
+<h6>4. Bean的作用域</h6>
+&emsp;在默认情况下,Spring应用上下文中所有bean都是作为以单例(singleton)的形式创建的。也就是说,不管给定的一个bean被注入
+到其他bean多少次,每次所注入的都是同一个实例。
+
+Spring定义了多种作用域,可以基于这些作用域创建bean,包括:
+
+* 单例(Singleton):在整个应用中,只创建bean的一个实例
+* 原型(Prototype):每次注入或者通过Spring应用上下文获取的时候,都会创建一个新的bean实例
+* 会话(Session):在Web应用中,为每个会话创建一个bean实例
+* 请求(Rquest):在Web应用中,为每个请求创建一个bean实例
+
+JavaConfig 中使用
+```java
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class Notepad {
+  // the details of this class are inconsequential to this example
+}
+```
+
+XML 中使用
+```
+  <bean id=" " class=" " scope="prototype">
+```
+
+Bean 代理模式
+
+* 基于接口
+* 基于类
+
+#Spring表达式语言(SpEL)
+
+<h6>1. 注入外部值</h6>
+使用@PropertySource注解和Environment类
+```java
+@Configuration
+@PropertySource("classpath:/../.....")
+public class Example(){
+}
+
+```
+
+<h6>2. 解析属性占位符</h6>
+&emsp;Spring一直支持将属性定义到外部的属性的文件中,并使用占位符值将其插入到Spring bean中。在Spring装配中,
+占位符的形式为使用“${... }”包装的属性名称.
+
+<h6>3. SpEL</h6>
+SpEL表达式要放到“#{ ... }”之中
+
+* 使用bean的ID来引用bean
+* 调用方法和访问对象的属性
+* 对值进行算术、关系和逻辑运算
+* 正则表达式匹配
+* 集合操作
+
+`#{T(System).out}` 中的T()表达式会将java.lang.System视为Java中对应的类型.
+
+`#{systemProperties['属性名']}` 可以通过systemProperties对象引用系统属性.
+
+
+
+
+
+
+
+
+[springModule]: images/springModule.png "springModule" { width:auto; max-width:90%}
+
