@@ -1,0 +1,442 @@
+Title         : Spring概述
+Author        : Cryan
+Logo          : True
+
+[TITLE]
+
+# Spring模块 
+&emsp;Spring framework core support for dependency injection, transaction management, web applications,
+data access, messaging, testing and more.
+
+&emsp;Spring由下列模块组成
+
+![springModule]
+
+# Spring核心
+* 依赖注入(Dependency Injection)
+* 应用切面编程(Aspect-Oriented Programming including Spring's declarative transaction management)
+* MVC框架(Spring MVC web application and RESTful web service framework)
+* 灵活的数据支持(Foundational support for JDBC, JPA, JMS)
+
+# Spring Bean基本用法
+<h4>传统意义上的Java Bean满足以下条件:</h4>
+
+* must implement either Serializable or Externalizable
+* must have a no-arg constructor
+* properties must have public setter and getter methods (as appropriate)
+* instance variables should be private
+
+<h4>POJO的定义满足:</h4>
+
+* All properties must public setter and getter methods
+* All instance variables should be private
+* Should not extend prespecified classes, not implement prespecified interfaces and not contain prespecified annotations
+* It may not have no argument constructor
+
+Spring下的Bean可以理解为增强版的POJO.
+
+<h4>Spring下配置Bean途径:</h4>
+
+* XML中进行显式配置
+* Java代码中显式配置
+* 隐式的bean自动扫描和装配
+
+<h4>1. 自动扫描和装配bean</h4>
+
+Spring从两个角度来实现自动化装配:
+
+* 组件声明: 声明Spring组件，即要创建的bean
+* 组件扫描(component scaning): Spring自动发现应用上下文中所创建的bean
+* 自动装配(autowiring): Spring自动满足bean之间的依赖
+
+组件声明---使用@Component注解声明Spring组件
+
+```java
+// 组件类声明,并告诉Spring要为这个类创建bean
+@Component
+public class SgtPeppers implements CompactDisc {
+    public void play() {
+    }
+}
+```
+@Component("自定义bean ID"),默认是类名首字母小写后的名称
+
+组件扫描---使用@ComponentScan注解
+```java
+@Configuration
+@ComponentScan
+public class CDPlayerConfig {
+}
+```
+@Configuration为Spring Java配置文件的注解，@ComponentScan默认扫描配置文件所在包，
+可以使用@ComponentScan(basePackages="包名")或者@ComponentScan(basePackages={"包名1"，"包名2"})
+@ComponentScan可以指定扫描类@ComponentScan(basePackageClasses={类名.class，类名.class})
+
+组件扫描---使用xml配置
+```
+xmlns:context="http://www.springframework.org/schema/context"
+<context:component-scan base-package="包名" />
+```
+组件自动装配---使用@Autowired注解
+```java
+@Component
+public class CDPlayer implements MediaPlayer{
+    private CompactDisc cd;
+    
+    @Autowired
+    public CDPlayer(CompactDisc cd){
+        this.cd = cd;
+    }
+
+    public void play() { }
+}
+```
+* @Autowired注解是Spring中特有的，可以使用@Inject(来源于java依赖注入规范)代替
+* @Autowired不仅可以在构造器上使用，还可以在set方法上使用，更一般可以在任意方法中使用
+* @Autowired在无法找到满足依赖注入的bean时，将抛出异常。@Autowired(required=false)表明禁止
+异常抛出，谨慎使用
+
+自动扫描和装配缺点:
+
+* 装配时满足注入依赖的类对象可能有多个
+* 不能为第三方库添加@Component和@Autowired注释
+
+<h4>2. Java代码装配Bean</h4>
+&emsp;在进行显式配置时,JavaConfig是更好的方案,因为它更为强大、类型安全并且对重构友好。因为它就是Java代码,
+就像应用程序中的其他Java代码一样。
+
+创建配置类---JavaConfig
+```java
+@Configuration
+public class CDPlayerConfig {
+
+}
+```
+@Configuration注解表明这个类是一个配置类,该类应该包含在Spring应用上下文中如何创建bean的细节。
+
+声明Bean---在JavaConfig中
+```java
+@Bean
+public CompactDisc sgtPeppers(){
+    return new SgtPeppers();
+}
+// 使用构造器实现依赖注入，生成bean
+@Bean
+public CDPlayer cdPlayer(CompactDisc compactDisc){
+    return new CDPlayer(compactDisc);
+}
+```
+* @Bean注解会告诉Spring这个方法将会返回一个对象,该对象要注册为Spring应用上下文中的bean。方法体中包含了最终产生bean实例的
+逻辑
+* @Bean声明使用方法名作为默认bean的ID,上例ID为sgtPeppers,使用@Bean(name="ID名")更改
+
+<h4>3. XML装配Bean</h4>
+&emsp;在xml中，beans为根元素，以此创建bean
+```
+<bean id="ID名" class="类名">
+    <constructor-arg value/ref="字面量值/引用bean ID"></constructor-arg>
+    <property name="变量名" value/ref="字面量值/引用bean ID"></property>
+</bean>
+```
+* 构造器参数可以使用c命名空间
+* 类的变量可以使用p命名空间
+
+<h4>4. 混合装配</h4>
+Java代码混合装配
+
+* JavaConfig中使用@ComponentScan实现组件自动扫描
+* JavaConfig中使用@Import导入Java配置代码.@Import(类名.class)或@Import({类名.class,类名.class})
+* JavaConfig中使用@ImportResource导入xml.@ImportResource("xml路径")
+
+xml混合装配
+
+* xml配置自动扫描
+* xml使用`<bean class="JavaConfig类">`来导入Java代码配置
+* xml使用`<import resource="xml路径">`来导入xml配置
+
+# Spring Bean高阶用法
+<h4>1. profile使用</h4>
+* 配置profile bean
+* 激活profile
+
+<h4>2. 条件化生成bean</h4>
+Spring 4 引入了一个新的@Conditional注解,它可以用到带有@Bean注解的方法上。如果给定的条件计算结果为true,
+就会创建这个bean,否则的话,这个bean会被忽略。
+```java
+// 条件化bean
+@Configuration
+public class MagicConfig {
+    @Bean
+    @Conditional(MagicExistsCondition.class)
+    public MagicBean magicBean(){
+        return new MagicBean();
+    }
+}
+// MagicExistsCondition.class定义
+public class MagicExistsCondition implements Condition {
+    public boolean matches(ConditionContext conditionContext,
+                           AnnotatedTypeMetadata annotatedTypeMetadata) {
+        Environment env = conditionContext.getEnvironment();
+        return env.containsProperty("magic");
+    }
+}
+```
+MagicExistsCondition实现类Condition接口
+```java
+public interface Condition {
+    boolean matches(ConditionContext var1, AnnotatedTypeMetadata var2);
+}
+```
+Condition接口中的参数
+
+* ConditionContext定义
+```java
+public interface ConditionContext {
+    // 检查bean定义
+    BeanDefinitionRegistry getRegistry();
+    // 检查bean是否存在,甚至探查bean的属性
+    ConfigurableListableBeanFactory getBeanFactory();
+    // 检查环境变量是否存在以及它的值是什么
+    Environment getEnvironment();
+    // 读取并探查资源文件
+    ResourceLoader getResourceLoader();
+    // 加载并检查类是否存在
+    ClassLoader getClassLoader();
+}
+```
+* AnnotatedTypeMetadata定义
+```java
+public interface AnnotatedTypeMetadata {
+    // 判断带有@Bean注解的方法是不是还有其他特定的注解
+    boolean isAnnotated(String var1);
+    Map<String, Object> getAnnotationAttributes(String var1);
+    Map<String, Object> getAnnotationAttributes(String var1, boolean var2);
+    MultiValueMap<String, Object> getAllAnnotationAttributes(String var1);
+    MultiValueMap<String, Object> getAllAnnotationAttributes(String var1, boolean var2);
+}
+```
+
+<h4>3. 自动装配Bean歧义处理</h4>
+出现歧义的原因:自动装配的方法的DI(依赖注入)存在多个实现类
+
+解决方法
+
+* 标示首选(primary) bean
+```java
+// JavaConfig中
+@Bean
+@Primary
+public Example example(){
+      new Example();
+}
+// xml文件中
+<bean id="" class="" primary=true />
+```
+* 使用限定符(qualifier): 
+  * 使用\@Qualifier("bean的ID")来装配歧义Bean
+  ```java
+  @Autowired
+  @Qualifier('bean ID')
+  public void setterDI(DI di){}
+  ```
+  * 使用\@Qualifier("bean 的ID")创建新的Bean ID(默认情况下Bean ID在类重构后改变，为其命名可以减少藕合)
+  ```java
+  @Component
+  @Qualifier('自定义ID')
+  public class Example{}
+  ```
+* 自定义限定符注解: 通过\@Qualifier实现新的限定符
+```java
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+@Documented
+@Qualifier
+public @interface 自定义注解名 {}
+```
+
+<h4>4. Bean的作用域</h4>
+&emsp;在默认情况下,Spring应用上下文中所有bean都是作为以单例(singleton)的形式创建的。也就是说,不管给定的一个bean被注入
+到其他bean多少次,每次所注入的都是同一个实例。
+
+Spring定义了多种作用域,可以基于这些作用域创建bean,包括:
+
+* 单例(Singleton):在整个应用中,只创建bean的一个实例
+* 原型(Prototype):每次注入或者通过Spring应用上下文获取的时候,都会创建一个新的bean实例
+* 会话(Session):在Web应用中,为每个会话创建一个bean实例
+* 请求(Rquest):在Web应用中,为每个请求创建一个bean实例
+
+JavaConfig 中使用
+```java
+@Component
+@Scope(ConfigurableBeanFactory.SCOPE_PROTOTYPE)
+public class Notepad {
+  // the details of this class are inconsequential to this example
+}
+```
+
+XML 中使用
+```
+  <bean id=" " class=" " scope="prototype">
+```
+
+Bean 代理模式
+
+* 基于接口
+* 基于类
+
+#Spring表达式语言(SpEL)
+
+<h4>1. 注入外部值</h4>
+使用@PropertySource注解和Environment类
+```java
+@Configuration
+@PropertySource("classpath:/../.....")
+public class Example(){
+}
+
+```
+
+<h4>2. 解析属性占位符</h4>
+&emsp;Spring一直支持将属性定义到外部的属性的文件中,并使用占位符值将其插入到Spring bean中。在Spring装配中,
+占位符的形式为使用“${... }”包装的属性名称.
+
+<h4>3. SpEL</h4>
+SpEL表达式要放到“#{ ... }”之中
+
+* 使用bean的ID来引用bean
+* 调用方法和访问对象的属性
+* 对值进行算术、关系和逻辑运算
+* 正则表达式匹配
+* 集合操作
+
+`#{T(System).out}` 中的T()表达式会将java.lang.System视为Java中对应的类型.
+
+`#{systemProperties['属性名']}` 可以通过systemProperties对象引用系统属性.
+
+# Spring面向切面编程
+<h4>1. 切面简介</h4>
+&emsp;切面能帮助我们模块化横切关注点。简而言之,横切关注点可以被描述为影响应用多处的功能.
+![切面]
+
+&emsp;切面实现了横切关注点(跨多个应用对象的逻辑)的模块化.
+
+<h4>2. AOP术语</h4>
+* 通知(Advice)： 要完成的功能，通知类型：
+  * 前置通知(Before): 在目标方法被调用之前调用通知功能
+  * 后置通知(After): 在目标方法完成之后调用通知,此时不会关心方法的输出是什么
+  * 返回通知(After-returning): 在目标方法成功执行之后调用通知
+  * 异常通知(After-throwing): 在目标方法抛出异常后调用通知
+  * 环绕通知(Around): 通知包裹了被通知的方法,在被通知的方法调用之前和调用之后执行自定义的行为
+* 连接点(Joint Point): 连接点是在应用执行过程中能够插入切面的一个点。这个点可以是调用方法时、抛出异常时、甚至修改一个字段时,
+切面代码可以利用这些点插入到应用的正常流程之中,并添加新的行为
+* 切点(Pointcut): 匹配通知所要织入的一个或多个连接点
+* 切面(Aspect): 通知和连接点的结合，是什么,在何时和何处完成其功能
+* 引入(Introduction)： 引入允许我们向现有的类添加新方法或属性
+* 织入(Weaving)： 织入是把切面应用到目标对象并创建新的代理对象的过程，织入时间点如下:
+   * 编译期: 切面在目标类编译时被织入。这种方式需要特殊的编译器。AspectJ的织入编译器就是以这种方式织入切面的
+   * 类加载期: 切面在目标类加载到JVM时被织入。这种方式需要特殊的类加载器(ClassLoader),它可以在目标类被引入应用
+   之前增强该目标类的字节码。AspectJ 5的加载时织入(load-timeweaving,LTW)就支持以这种方式织入切面
+   * 运行期: 切面在应用运行的某个时刻被织入。一般情况下,在织入切面时,AOP容器会为目标对象动态地创建一个代理对象。
+   Spring AOP就是以这种方式织入切面的
+
+![qiemian-1]
+
+<h4>3. Spring AOP代理范围</h4>
+&emsp;Spring只支持方法连接点。这与一些其他的AOP框架是不同的,例如AspectJ和JBoss,除了方法切点,
+它们还提供了字段和构造器接入点。Spring缺少对字段连接点的支持,无法让我们创建细粒度的通知,例如拦截对象字段的修改。而
+且它不支持构造器连接点,我们就无法在bean创建时应用通知。
+
+<h4>4. 切点的定义</h4>
+Spring借助AspectJ的切点表达式语言来定义Spring切面
+![SpringAOP-1]
+```java
+// 定义一个目标对象类或接口
+package concert
+
+public interface Performance(){
+  void performance();
+}
+```
+![SpringAOP-2]
+
+&emsp;使用execution()指示器选择Performance的perform()方法。方法表达式以"*"号开始,表明了我们不关心方法返回值的类型。
+然后,我们指定了全限定类名和方法名。对于方法参数列表,我们使用两个点号(..)表明切点要选择任意的perform()方法,无
+论该方法的入参是什么。
+
+&emsp;使用&&(and)、||(or)和！(not)组合指示器，其中&&不能在xml中使用(&在xml中有特殊含义)
+
+&emsp;<strong>使用Bean()指示器</strong>,其为Spring　AOP中特有。bean("bean ID"),bean()使用bean ID
+或bean名称作为参数来限制切点只匹配特定的bean。
+
+<h4>5. 使用注解创建切面</h4>
+![SpringAOP-3]
+```java
+@Aspect
+public class Audience {
+    @Before("execution(* aspect.Performance.performance(..))")
+    public void silenceCellPhones(){
+        System.out.println("silence");
+    }
+    //使用pointcut注解
+    @Pointcut("execution(* aspect.Performance.performance(..))")
+    public void performance(){}
+
+    @After("performance()")
+    public void applause(){
+        System.out.println("applause");
+    }
+}
+```
+&emsp;JavaConfig中使切面生效，如果你使用JavaConfig的话,可以在配置类的类级别上通过使用EnableAspectJAutoProxy注解启用自动代理功能
+```java
+@Configuration
+@EnableAspectAutoProxy
+public class JavaConfig(){}
+```
+&emsp;在Spring中要使用XML来装配bean的话,那么需要使用Springaop命名空间中的`<aop:aspectj-autoproxy>`元素。
+
+<h4>6. 环绕通知</h4>
+&emsp;环绕通知接受ProceedingJoinPoint作为参数。这个对象是必须要有的,因为你要在通知中通过它来调用被通知的方法。通知方法中可以做任何的
+事情,当要将控制权交给被通知的方法时,它需要调用ProceedingJoinPoint的proceed()方法。
+```java
+@Around("performance()")
+  public void watch(ProceedingJoinPoint jp){
+      try {
+          System.out.println("before");
+          jp.proceed();
+          System.out.println("after");
+      }catch (Throwable e){
+      }
+  }
+```
+<h4>7. 通知参数</h4>
+```java
+// execution指定参数类型，args产生参数名称，和切点方法中的参数相匹配
+@Pointcut("execution(* aspect.Performance.sing(String))"
+            +"&&"+"args(name)")
+public void sing(String name){}
+// 通知方法中使用相同的参数名
+@Before("sing(name)")
+public void beforeSing(String name){
+    System.out.println(name);
+}
+```
+<h4>8. 通过注解引入新功能</h4>
+&emsp;使用@Aspect和@DeclareParents来实现
+
+<h4>9. 使用xml声明切面</h4>
+&emsp;创建一般的bean,并将其在xml中声明为bean和aspect.
+
+&emsp;可以使用xml为切面注入新的功能(实现新的接口).
+
+
+
+
+[SpringAOP-3]: images/SpringAOP-3.png "SpringAOP-3" { width:auto; max-width:90% }
+[SpringAOP-2]: images/SpringAOP-2.png "SpringAOP-2" { width:auto; max-width:90% }
+[SpringAOP-1]: images/SpringAOP-1.png "SpringAOP-1" { width:auto; max-width:90% }
+[qiemian-1]: images/qiemian-1.png "qiemian-1" { width:auto; max-width:90% }
+[切面]: images/-.png "切面" { width:auto; max-width:90% }
+[springModule]: images/springModule.png "springModule" { width:auto; max-width:90%}
+
